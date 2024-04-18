@@ -25,7 +25,7 @@ class PositionalEncoding(nn.Module):
 
 class Transformer(nn.Module):
 
-    def __init__(self, d_model, n_enc1, n_enc2, n_dims, seq_len, n_head, n_classes, device, dim_ff, dropout_ff, concat_mode, select_mode) -> None:
+    def __init__(self, d_model, n_enc1, n_enc2, n_dims, seq_len, n_head, n_classes, device, dim_ff, dropout_ff, concat_mode, select_mode, embedding_mode) -> None:
         super().__init__()
 
         self.d_model = d_model
@@ -37,6 +37,7 @@ class Transformer(nn.Module):
         self.dropout_ff = dropout_ff
         self.concat_mode = concat_mode
         self.select_mode = select_mode
+        self.embedding_mode = embedding_mode
 
         assert self.seq_len % self.d_model == 0
         self.n_patch = int(self.seq_len / self.d_model)
@@ -44,7 +45,8 @@ class Transformer(nn.Module):
         self.n_head = n_head
         self.n_classes = n_classes
 
-        self.emb = nn.Linear(self.d_model, self.d_model)
+        if self.embedding_mode:
+            self.emb = nn.Linear(self.d_model, self.d_model)
 
         self.pos_enc = PositionalEncoding(self.d_model)
         self.pos_v = self.pos_enc.get_pos_enc(self.n_patch).reshape(1, 1, self.n_patch, self.d_model).to(device)
@@ -109,8 +111,9 @@ class Transformer(nn.Module):
     def forward(self, x):
         
         batch_size = x.shape[0]
-        # x = x.reshape(-1, self.d_model)
-        # x = self.emb(x)
+        if self.embedding_mode:
+            x = x.reshape(-1, self.d_model)
+            x = self.emb(x)
         x = x.reshape(batch_size, self.d_model, self.n_patch, self.n_dims)
 
         x1 = x.permute(0, 2, 3, 1).reshape(-1, self.n_dims, self.d_model)

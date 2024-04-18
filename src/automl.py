@@ -20,7 +20,7 @@ class AutoML:
         self.batch_size = batch_size
 
         self.scale_modes = [0, 1, 2]
-        self.need_fourie = [False, True]
+        self.fourie_modes = [False, True]
         self.concat_modes = [0, 1, 2, 3]
         self.select_modes = [0, 1, 2, 3]
         self.learning_rates = [0.00001, 0.0001, 0.001, 0.01]
@@ -29,8 +29,9 @@ class AutoML:
         self.ns_enc1 = [0, 1, 2, 3]
         self.ns_enc2 = [0, 1, 2, 3]
         self.ns_head = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        self.embedding_modes = [False, True]
         
-        self.init_need_fourie = self.need_fourie[0]
+        self.init_need_fourie = False
         self.init_max_seq_len = None
         self.init_n_enc1 = 1
         self.init_n_enc2 = 1
@@ -40,10 +41,19 @@ class AutoML:
         self.init_dropout_ff = 0.5
         self.init_concat_mode = 2
         self.init_select_mode = 0
+        self.init_embedding_mode = False
+
 
     def get_num_epochs(self, size):
 
         return 20000000 / size
+    
+
+    def get_params(self):
+
+        return {'scale_mode': self.scale_mode, 'need_forie': self.fourie_mode, 'concat_mode': self.concat_mode, 
+                'select_mode': self.select_mode, 'patch_size': self.patch_size, 'n_enc1': self.n_enc1, 'n_enc2': self.n_enc2, 
+                'lr': self.lr, 'dim_ff': self.dim_ff, 'dropout_ff': self.dropout_ff, 'n_head': self.n_head, 'embedding_mode': self.embedding_mode}
 
 
     def forward(self):
@@ -57,7 +67,7 @@ class AutoML:
             train = Train(X_train, y_train, X_test, y_test, self.seed, self.val_size, self.batch_size, self.max_epochs)
             patch_size = train.path_sizes[len(train.path_sizes) // 2]
             metric, val_epoch, _ = train.forward(patch_size, self.init_n_enc1, self.init_n_enc2, self.init_n_head, self.init_lr, \
-                                                self.init_dim_ff, self.init_dropout_ff, self.init_concat_mode, self.init_select_mode)
+                                                self.init_dim_ff, self.init_dropout_ff, self.init_concat_mode, self.init_select_mode, self.init_embedding_mode)
             
             if metric > max_metric:
                 self.scale_mode = scale_mode
@@ -72,14 +82,14 @@ class AutoML:
         
         print('Select Fourie mode..')
         max_metric, min_val_epoch = 0, np.inf
-        for fourie_mode in self.need_fourie:
+        for fourie_mode in self.fourie_modes:
 
             X_train, y_train, X_test, y_test = self.preprocess.forward(scale_mode, fourie_mode, self.init_max_seq_len)
         
             train = Train(X_train, y_train, X_test, y_test, self.seed, self.val_size, self.batch_size, self.max_epochs)
             patch_size = train.path_sizes[len(train.path_sizes) // 2]
             metric, val_epoch, _ = train.forward(patch_size, self.init_n_enc1, self.init_n_enc2, self.init_n_head, self.init_lr, \
-                                                self.init_dim_ff, self.init_dropout_ff, self.init_concat_mode, self.init_select_mode)
+                                                self.init_dim_ff, self.init_dropout_ff, self.init_concat_mode, self.init_select_mode, self.init_embedding_mode)
             
             if metric > max_metric:
                 self.fourie_mode = fourie_mode
@@ -90,17 +100,17 @@ class AutoML:
                     self.fourie_mode = fourie_mode
                     min_val_epoch = val_epoch            
         print(max_metric, self.fourie_mode)
-        
-        print('Select concat and select modes..')
+
         X_train, y_train, X_test, y_test = self.preprocess.forward(self.scale_mode, self.fourie_mode, self.init_max_seq_len)
         train = Train(X_train, y_train, X_test, y_test, self.seed, self.val_size, self.batch_size, self.max_epochs)
         patch_size = train.path_sizes[len(train.path_sizes) // 2]
         
+        print('Select concat and select modes..')
         max_metric, min_val_epoch = 0, np.inf
         for concat_mode in self.concat_modes:
             for select_mode in self.select_modes:
                 metric, val_epoch, _ = train.forward(patch_size, self.init_n_enc1, self.init_n_enc2, self.init_n_head, self.init_lr, \
-                                                    self.init_dim_ff, self.init_dropout_ff, concat_mode, select_mode)
+                                                    self.init_dim_ff, self.init_dropout_ff, concat_mode, select_mode, self.init_embedding_mode)
             
                 if metric > max_metric:
                     self.concat_mode = concat_mode
@@ -120,7 +130,7 @@ class AutoML:
         for patch_size in train.path_sizes:
         
             metric, val_epoch, _ = train.forward(patch_size, self.init_n_enc1, self.init_n_enc2, self.init_n_head, self.init_lr, \
-                                                    self.init_dim_ff, self.init_dropout_ff, self.concat_mode, self.select_mode)
+                                                    self.init_dim_ff, self.init_dropout_ff, self.concat_mode, self.select_mode, self.init_embedding_mode)
         
             if metric > max_metric:
                 self.patch_size = patch_size
@@ -137,7 +147,7 @@ class AutoML:
         for lr in self.learning_rates:
         
             metric, val_epoch, _ = train.forward(self.patch_size, self.init_n_enc1, self.init_n_enc2, self.init_n_head, lr, \
-                                                    self.init_dim_ff, self.init_dropout_ff, self.concat_mode, self.select_mode)
+                                                    self.init_dim_ff, self.init_dropout_ff, self.concat_mode, self.select_mode, self.init_embedding_mode)
         
             if metric > max_metric:
                 self.lr = lr
@@ -154,7 +164,7 @@ class AutoML:
         for dim_ff in self.dims_ff:
         
             metric, val_epoch, _ = train.forward(self.patch_size, self.init_n_enc1, self.init_n_enc2, self.init_n_head, self.lr, \
-                                                dim_ff, self.init_dropout_ff, self.concat_mode, self.select_mode)
+                                                dim_ff, self.init_dropout_ff, self.concat_mode, self.select_mode, self.init_embedding_mode)
         
             if metric > max_metric:
                 self.dim_ff = dim_ff
@@ -171,7 +181,7 @@ class AutoML:
         for dropout_ff in self.dropouts_ff:
         
             metric, val_epoch, _ = train.forward(self.patch_size, self.init_n_enc1, self.init_n_enc2, self.init_n_head, self.lr, \
-                                                self.dim_ff, dropout_ff, self.concat_mode, self.select_mode)
+                                                self.dim_ff, dropout_ff, self.concat_mode, self.select_mode, self.init_embedding_mode)
         
             if metric > max_metric:
                 self.dropout_ff = dropout_ff
@@ -189,19 +199,36 @@ class AutoML:
             for n_enc2 in self.ns_enc2:
         
                 metric, val_epoch, _ = train.forward(self.patch_size, n_enc1, n_enc2, self.init_n_head, self.lr, \
-                                                    self.dim_ff, self.dropout_ff, self.concat_mode, self.select_mode)
+                                                    self.dim_ff, self.dropout_ff, self.concat_mode, self.select_mode, self.init_embedding_mode)
 
                 if metric > max_metric:
                     self.n_enc1 = n_enc1
-                    self.n_enc2 = n_enc1
+                    self.n_enc2 = n_enc2
                     max_metric = metric
                     min_val_epoch = val_epoch
                 elif metric == max_metric:
                     if val_epoch < min_val_epoch:
                         self.n_enc1 = n_enc1
-                        self.n_enc2 = n_enc1
+                        self.n_enc2 = n_enc2
                         min_val_epoch = val_epoch 
-        print(max_metric, self.n_enc1, n_enc2)
+        print(max_metric, self.n_enc1, self.n_enc2)
+
+        print('Select need embedding layer..')
+        max_metric, min_val_epoch = 0, np.inf
+        for embedding_mode in self.embedding_modes:
+        
+            metric, val_epoch, _ = train.forward(self.patch_size, self.n_enc1, self.n_enc2, self.init_n_head, self.lr, \
+                                                    self.dim_ff, self.dropout_ff, self.concat_mode, self.select_mode, embedding_mode)
+        
+            if metric > max_metric:
+                self.embedding_mode = embedding_mode
+                max_metric = metric
+                min_val_epoch = val_epoch
+            elif metric == max_metric:
+                if val_epoch < min_val_epoch:
+                    self.embedding_mode = embedding_mode
+                    min_val_epoch = val_epoch  
+        print(max_metric, self.embedding_mode)
 
         print('Select num attention heads..')
         max_metric, min_val_epoch = 0, np.inf
@@ -210,7 +237,7 @@ class AutoML:
                 continue
 
             metric, val_epoch, _ = train.forward(self.patch_size, self.n_enc1, self.n_enc2, n_head, self.lr, \
-                                                self.dim_ff, self.dropout_ff, self.concat_mode, self.select_mode)
+                                                self.dim_ff, self.dropout_ff, self.concat_mode, self.select_mode, self.embedding_mode)
         
             if metric > max_metric:
                 self.n_head = n_head
@@ -225,9 +252,10 @@ class AutoML:
         print('Final train..')
         train.epochs = train.epochs * 2
         metric, val_epoch, model = train.forward(self.patch_size, self.n_enc1, self.n_enc2, self.n_head, self.lr, \
-                                            self.dim_ff, self.dropout_ff, self.concat_mode, self.select_mode)
+                                            self.dim_ff, self.dropout_ff, self.concat_mode, self.select_mode, self.embedding_mode)
         
-        return metric
+        
+        return metric, self.get_params()
         
 
 
