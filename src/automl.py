@@ -54,6 +54,18 @@ class AutoML:
         return {'scale_mode': self.scale_mode, 'need_forie': self.fourie_mode, 'concat_mode': self.concat_mode, 
                 'select_mode': self.select_mode, 'patch_size': self.patch_size, 'n_enc1': self.n_enc1, 'n_enc2': self.n_enc2, 
                 'lr': self.lr, 'dim_ff': self.dim_ff, 'dropout_ff': self.dropout_ff, 'n_head': self.n_head, 'embedding_mode': self.embedding_mode}
+    
+    
+    def test(self, scale_mode, need_fourie, max_seq_len, patch_size, max_epochs, n_enc1, n_enc2, n_head, lr,
+                dim_ff, dropout_ff, concat_mode, select_mode, embedding_mode):
+        
+        X_train, y_train, X_test, y_test = self.preprocess.forward(scale_mode, need_fourie, max_seq_len)
+        
+        train = Train(X_train, y_train, X_test, y_test, seed, val_size, batch_size, max_epochs)
+        metric, val_epoch, model = train.forward(patch_size, n_enc1, n_enc2, n_head, lr, \
+                                            dim_ff, dropout_ff, concat_mode, select_mode, embedding_mode)
+        
+        return metric
 
 
     def forward(self):
