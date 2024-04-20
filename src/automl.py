@@ -31,7 +31,7 @@ class AutoML:
         self.ns_head = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         self.embedding_modes = [False, True]
         
-        self.init_need_fourie = False
+        self.init_fourie_mode = False
         self.init_max_seq_len = None
         self.init_n_enc1 = 1
         self.init_n_enc2 = 1
@@ -51,17 +51,18 @@ class AutoML:
 
     def get_params(self):
 
-        return {'scale_mode': self.scale_mode, 'need_forie': self.fourie_mode, 'concat_mode': self.concat_mode, 
+        return {'scale_mode': self.scale_mode, 'fourie_mode': self.fourie_mode, 'concat_mode': self.concat_mode, 
                 'select_mode': self.select_mode, 'patch_size': self.patch_size, 'n_enc1': self.n_enc1, 'n_enc2': self.n_enc2, 
-                'lr': self.lr, 'dim_ff': self.dim_ff, 'dropout_ff': self.dropout_ff, 'n_head': self.n_head, 'embedding_mode': self.embedding_mode}
+                'lr': self.lr, 'dim_ff': self.dim_ff, 'dropout_ff': self.dropout_ff, 'n_head': self.n_head, 
+                'embedding_mode': self.embedding_mode, 'n_epochs': self.n_epochs, 'max_seq_len': self.init_max_seq_len}
     
     
-    def test(self, scale_mode, need_fourie, max_seq_len, patch_size, max_epochs, n_enc1, n_enc2, n_head, lr,
+    def test(self, scale_mode, fourie_mode, max_seq_len, patch_size, n_epochs, n_enc1, n_enc2, n_head, lr,
                 dim_ff, dropout_ff, concat_mode, select_mode, embedding_mode):
         
-        X_train, y_train, X_test, y_test = self.preprocess.forward(scale_mode, need_fourie, max_seq_len)
+        X_train, y_train, X_test, y_test = self.preprocess.forward(scale_mode, fourie_mode, max_seq_len)
         
-        train = Train(X_train, y_train, X_test, y_test, seed, val_size, batch_size, max_epochs)
+        train = Train(X_train, y_train, X_test, y_test, seed, val_size, batch_size, n_epochs)
         metric, val_epoch, model = train.forward(patch_size, n_enc1, n_enc2, n_head, lr, \
                                             dim_ff, dropout_ff, concat_mode, select_mode, embedding_mode)
         
@@ -74,7 +75,7 @@ class AutoML:
         max_metric, min_val_epoch = 0, np.inf
         for scale_mode in self.scale_modes:
 
-            X_train, y_train, X_test, y_test = self.preprocess.forward(scale_mode, self.init_need_fourie, self.init_max_seq_len)
+            X_train, y_train, X_test, y_test = self.preprocess.forward(scale_mode, self.init_fourie_mode, self.init_max_seq_len)
         
             train = Train(X_train, y_train, X_test, y_test, self.seed, self.val_size, self.batch_size, self.max_epochs)
             patch_size = train.path_sizes[len(train.path_sizes) // 2]
@@ -261,13 +262,20 @@ class AutoML:
                     min_val_epoch = val_epoch 
         print(max_metric, self.n_head)
         
-        print('Final train..')
+        print('Select best epoch..')
         train.epochs = train.epochs * 2
+        metric, val_epoch, _ = train.forward(self.patch_size, self.n_enc1, self.n_enc2, self.n_head, self.lr, \
+                                            self.dim_ff, self.dropout_ff, self.concat_mode, self.select_mode, self.embedding_mode)
+        
+        self.n_epochs = val_epoch
+    
+        print('Final train..')
+        train.epochs = self.n_epochs
         metric, val_epoch, model = train.forward(self.patch_size, self.n_enc1, self.n_enc2, self.n_head, self.lr, \
                                             self.dim_ff, self.dropout_ff, self.concat_mode, self.select_mode, self.embedding_mode)
         
         
-        return metric, self.get_params()
+        return model, self.get_params(), metric 
         
 
 

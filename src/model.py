@@ -45,8 +45,7 @@ class Transformer(nn.Module):
         self.n_head = n_head
         self.n_classes = n_classes
 
-        if self.embedding_mode:
-            self.emb = nn.Linear(self.d_model, self.d_model)
+        self.emb = nn.Linear(self.d_model, self.d_model)
 
         self.pos_enc = PositionalEncoding(self.d_model)
         self.pos_v = self.pos_enc.get_pos_enc(self.n_patch).reshape(1, 1, self.n_patch, self.d_model).to(device)
