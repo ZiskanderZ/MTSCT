@@ -45,20 +45,23 @@ class Transformer(nn.Module):
         self.n_head = n_head
         self.n_classes = n_classes
 
-        self.emb = nn.Linear(self.d_model, self.d_model)
+        if self.embedding_mode:
+            self.emb = nn.Linear(self.d_model, self.d_model)
 
         self.pos_enc = PositionalEncoding(self.d_model)
         self.pos_v = self.pos_enc.get_pos_enc(self.n_patch).reshape(1, 1, self.n_patch, self.d_model).to(device)
         
         self.layers = nn.ModuleDict()
-        encoder_layer = nn.TransformerEncoderLayer(d_model=self.d_model, nhead=self.n_head, dim_feedforward=self.dim_ff, batch_first=True, dropout=self.dropout_ff)
+
         for i in range(self.n_enc1):
             layer_name = f'encoder_1_{i}'
-            self.layers[layer_name] = encoder_layer
+            self.layers[layer_name] = nn.TransformerEncoderLayer(d_model=self.d_model, nhead=self.n_head, \
+                                                                dim_feedforward=self.dim_ff, batch_first=True, dropout=self.dropout_ff)
         
         for i in range(self.n_enc2):
             layer_name = f'encoder_2_{i}'
-            self.layers[layer_name] = encoder_layer
+            self.layers[layer_name] = nn.TransformerEncoderLayer(d_model=self.d_model, nhead=self.n_head, \
+                                                                dim_feedforward=self.dim_ff, batch_first=True, dropout=self.dropout_ff)
 
         lin_size = self.compute_output_shape()
         self.linear = nn.Linear(lin_size, self.n_classes)

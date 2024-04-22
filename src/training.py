@@ -95,9 +95,11 @@ class Train:
                 lst.append(i)
         self.path_sizes = sorted(lst)
 
-    def forward(self, patch_size, n_enc1, n_enc2, n_head, lr, dim_ff, dropout_ff, concat_mode, select_mode, embedding_mode):
-
+    def forward(self, patch_size, n_enc1, n_enc2, n_head, lr, dim_ff, dropout_ff, concat_mode, select_mode, embedding_mode, **kwargs):
+        
         self.fix_seeds(self.seed)
+        print({'patch_size': patch_size, 'n_enc1': n_enc1, 'n_enc2': n_enc2, 'n_head': n_head, 'lr': lr,\
+               'dim_ff': dim_ff, 'dropout_ff': dropout_ff, 'concat_mode': concat_mode, 'select_mode': select_mode, 'embedding_mode': embedding_mode})
         model = Transformer(patch_size, n_enc1, n_enc2, self.n_channels, self.seq_len,\
                              n_head, len(self.n2c), self.device, dim_ff, dropout_ff, concat_mode, select_mode, embedding_mode).to(self.device)
         criterion = nn.CrossEntropyLoss()
@@ -126,6 +128,7 @@ class Train:
                     self.model = model
                     max_val_metric = test_acc
                     max_val_epoch = e
+        print(max_val_metric, max_val_epoch)
         
         return max_val_metric, max_val_epoch, self.model
 

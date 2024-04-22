@@ -2,7 +2,7 @@ from src.automl import AutoML
 
 if __name__ == '__main__':
 
-    ds_name = 'AtrialFibrillation'
+    ds_name = ...
 
     train_path = rf'data\{ds_name}\{ds_name}_TRAIN.arff'
     test_path = rf'data\{ds_name}\{ds_name}_TEST.arff'

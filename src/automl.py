@@ -2,7 +2,7 @@ import numpy as np
 
 from src.preprocessing import Preprocess
 from src.training import Train
-from src.config import seed, val_size, batch_size
+from src.config import seed, val_size, batch_size, tuning_dict
 
 class AutoML:
 
@@ -19,18 +19,14 @@ class AutoML:
         self.val_size = val_size
         self.batch_size = batch_size
 
-        self.scale_modes = [0, 1, 2]
-        self.fourie_modes = [False, True]
-        self.concat_modes = [0, 1, 2, 3]
-        self.select_modes = [0, 1, 2, 3]
-        self.learning_rates = [0.00001, 0.0001, 0.001, 0.01]
-        self.dims_ff = [516, 1024, 2048]
-        self.dropouts_ff = [0.1, 0.25, 0.5, 0.75]
-        self.ns_enc1 = [0, 1, 2, 3]
-        self.ns_enc2 = [0, 1, 2, 3]
-        self.ns_head = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        self.embedding_modes = [False, True]
+        self.tuning_dict = tuning_dict
+        self.tuning_order = ['scale_mode', 'fourie_mode', ['concat_mode', 'select_mode'], 'patch_size', 'lr', 'dim_ff',\
+                             'dropout_ff', ['n_enc1', 'n_enc2'], 'embedding_mode', 'n_head']
         
+        self.params = ['scale_mode', 'fourie_mode', 'concat_mode', 'select_mode', 'patch_size', 'lr', 'dim_ff',\
+                             'dropout_ff', 'n_enc1', 'n_enc2', 'embedding_mode', 'n_head', 'max_seq_len']
+        
+        self.init_scale_mode = 0
         self.init_fourie_mode = False
         self.init_max_seq_len = None
         self.init_n_enc1 = 1
@@ -42,6 +38,10 @@ class AutoML:
         self.init_concat_mode = 2
         self.init_select_mode = 0
         self.init_embedding_mode = False
+        self.init_patch_size = 1
+
+        self.max_metric = 0
+        self.min_val_epoch = np.inf
 
 
     def get_num_epochs(self, size):
@@ -62,219 +62,106 @@ class AutoML:
         
         X_train, y_train, X_test, y_test = self.preprocess.forward(scale_mode, fourie_mode, max_seq_len)
         
-        train = Train(X_train, y_train, X_test, y_test, seed, val_size, batch_size, n_epochs)
+        train = Train(X_train, y_train, X_test, y_test, self.seed, self.val_size, self.batch_size, n_epochs)
         metric, val_epoch, model = train.forward(patch_size, n_enc1, n_enc2, n_head, lr, \
                                             dim_ff, dropout_ff, concat_mode, select_mode, embedding_mode)
         
         return metric
+    
+    
+    def select_param(self, param_name, modes, change_data, additional_param=False):
+
+        print(f'Tuning {param_name} ..')
+        params = self.params
+        params_dict = {}
+        for param in params:
+            init_param_value = getattr(self, f'init_{param}')
+            if param == additional_param:
+                params_dict[param] = init_param_value
+            else:
+                params_dict[param] = getattr(self, param, init_param_value)
+
+        for mode in modes:
+            if param_name == 'n_head':
+                if self.patch_size % mode != 0 or mode > self.patch_size:
+                    continue
+
+            params_dict[param_name] = mode
+            
+            if change_data:
+                X_train, y_train, X_test, y_test = self.preprocess.forward(**params_dict)
+                train = Train(X_train, y_train, X_test, y_test, self.seed, self.val_size, self.batch_size, self.max_epochs)
+                params_dict['patch_size'] = train.path_sizes[len(train.path_sizes) // 2]
+            else:
+                train = self.train
+
+            metric, val_epoch, _ = train.forward(**params_dict)
+
+            if metric > self.max_metric or (metric == self.max_metric and val_epoch < self.min_val_epoch):
+                setattr(self, param_name, mode)
+                self.max_metric = metric
+                self.min_val_epoch = val_epoch
+
+                if change_data:
+                    self.train = train
+                    self.init_patch_size = params_dict['patch_size']
+
+                if additional_param:
+                    # если подбираем сразу 2 параметра
+                    setattr(self, additional_param, getattr(self, f'init_{additional_param}'))
+        
+        # если подбор не дал лучшего результата, то присваиваем начальное значение
+        if not hasattr(self, param_name):
+            setattr(self, param_name, getattr(self, f'init_{param_name}'))
+
+        print(self.max_metric, getattr(self, param_name))
 
 
     def forward(self):
 
-        print('Select scale mode..')
-        max_metric, min_val_epoch = 0, np.inf
-        for scale_mode in self.scale_modes:
+        for param_name in self.tuning_order:
 
-            X_train, y_train, X_test, y_test = self.preprocess.forward(scale_mode, self.init_fourie_mode, self.init_max_seq_len)
-        
-            train = Train(X_train, y_train, X_test, y_test, self.seed, self.val_size, self.batch_size, self.max_epochs)
-            patch_size = train.path_sizes[len(train.path_sizes) // 2]
-            metric, val_epoch, _ = train.forward(patch_size, self.init_n_enc1, self.init_n_enc2, self.init_n_head, self.init_lr, \
-                                                self.init_dim_ff, self.init_dropout_ff, self.init_concat_mode, self.init_select_mode, self.init_embedding_mode)
-            
-            if metric > max_metric:
-                self.scale_mode = scale_mode
-                max_metric = metric
-                min_val_epoch = val_epoch
-            elif metric == max_metric:
-                if val_epoch < min_val_epoch:
-                    self.scale_mode = scale_mode
-                    min_val_epoch = val_epoch
+            if isinstance(param_name, str):
 
-        print(max_metric, self.scale_mode)
-        
-        print('Select Fourie mode..')
-        max_metric, min_val_epoch = 0, np.inf
-        for fourie_mode in self.fourie_modes:
+                if param_name == 'patch_size':
+                    params = {'modes': self.train.path_sizes, 'change_data': False}
+                else:
+                    params = self.tuning_dict[param_name]
 
-            X_train, y_train, X_test, y_test = self.preprocess.forward(scale_mode, fourie_mode, self.init_max_seq_len)
-        
-            train = Train(X_train, y_train, X_test, y_test, self.seed, self.val_size, self.batch_size, self.max_epochs)
-            patch_size = train.path_sizes[len(train.path_sizes) // 2]
-            metric, val_epoch, _ = train.forward(patch_size, self.init_n_enc1, self.init_n_enc2, self.init_n_head, self.init_lr, \
-                                                self.init_dim_ff, self.init_dropout_ff, self.init_concat_mode, self.init_select_mode, self.init_embedding_mode)
-            
-            if metric > max_metric:
-                self.fourie_mode = fourie_mode
-                max_metric = metric
-                min_val_epoch = val_epoch
-            elif metric == max_metric:
-                if val_epoch < min_val_epoch:
-                    self.fourie_mode = fourie_mode
-                    min_val_epoch = val_epoch            
-        print(max_metric, self.fourie_mode)
+                self.select_param(param_name, params['modes'], params['change_data'])
+            else:
+                # подбор одновременно двух параметров
+                params1 = self.tuning_dict[param_name[0]]
+                params2 = self.tuning_dict[param_name[1]]
 
-        X_train, y_train, X_test, y_test = self.preprocess.forward(self.scale_mode, self.fourie_mode, self.init_max_seq_len)
-        train = Train(X_train, y_train, X_test, y_test, self.seed, self.val_size, self.batch_size, self.max_epochs)
-        patch_size = train.path_sizes[len(train.path_sizes) // 2]
-        
-        print('Select concat and select modes..')
-        max_metric, min_val_epoch = 0, np.inf
-        for concat_mode in self.concat_modes:
-            for select_mode in self.select_modes:
-                metric, val_epoch, _ = train.forward(patch_size, self.init_n_enc1, self.init_n_enc2, self.init_n_head, self.init_lr, \
-                                                    self.init_dim_ff, self.init_dropout_ff, concat_mode, select_mode, self.init_embedding_mode)
-            
-                if metric > max_metric:
-                    self.concat_mode = concat_mode
-                    self.select_mode = select_mode
-                    max_metric = metric
-                    min_val_epoch = val_epoch
-                elif metric == max_metric:
-                    if val_epoch < min_val_epoch:
-                        self.concat_mode = concat_mode
-                        self.select_mode = select_mode
-                        min_val_epoch = val_epoch 
-                    
-        print(max_metric, self.concat_mode, self.select_mode)
-        
-        print('Select patch size..')
-        max_metric, min_val_epoch = 0, np.inf
-        for patch_size in train.path_sizes:
-        
-            metric, val_epoch, _ = train.forward(patch_size, self.init_n_enc1, self.init_n_enc2, self.init_n_head, self.init_lr, \
-                                                    self.init_dim_ff, self.init_dropout_ff, self.concat_mode, self.select_mode, self.init_embedding_mode)
-        
-            if metric > max_metric:
-                self.patch_size = patch_size
-                max_metric = metric
-                min_val_epoch = val_epoch
-            elif metric == max_metric:
-                if val_epoch < min_val_epoch:
-                    self.patch_size = patch_size
-                    min_val_epoch = val_epoch  
-        print(max_metric, self.patch_size)
+                init_value = getattr(self, f'init_{param_name[0]}')
 
-        print('Select learning rate..')
-        max_metric, min_val_epoch = 0, np.inf
-        for lr in self.learning_rates:
-        
-            metric, val_epoch, _ = train.forward(self.patch_size, self.init_n_enc1, self.init_n_enc2, self.init_n_head, lr, \
-                                                    self.init_dim_ff, self.init_dropout_ff, self.concat_mode, self.select_mode, self.init_embedding_mode)
-        
-            if metric > max_metric:
-                self.lr = lr
-                max_metric = metric
-                min_val_epoch = val_epoch
-            elif metric == max_metric:
-                if val_epoch < min_val_epoch:
-                    self.lr = lr
-                    min_val_epoch = val_epoch  
-        print(max_metric, self.lr)
-        
-        print('Select feed forward neurons..')
-        max_metric, min_val_epoch = 0, np.inf
-        for dim_ff in self.dims_ff:
-        
-            metric, val_epoch, _ = train.forward(self.patch_size, self.init_n_enc1, self.init_n_enc2, self.init_n_head, self.lr, \
-                                                dim_ff, self.init_dropout_ff, self.concat_mode, self.select_mode, self.init_embedding_mode)
-        
-            if metric > max_metric:
-                self.dim_ff = dim_ff
-                max_metric = metric
-                min_val_epoch = val_epoch
-            elif metric == max_metric:
-                if val_epoch < min_val_epoch:
-                    self.dim_ff = dim_ff
-                    min_val_epoch = val_epoch  
-        print(max_metric, self.dim_ff)
+                for param1 in params1['modes']:
+                    setattr(self, f'init_{param_name[0]}', param1)
+                    self.select_param(param_name[1], params2['modes'], params2['change_data'], additional_param=param_name[0])
+                
+                # если подбор не дал лучшего результата, то присваиваем начальное значение
+                if not hasattr(self, param_name[0]):
+                    setattr(self, param_name[0], init_value)
 
-        print('Select feed forward dropout..')
-        max_metric, min_val_epoch = 0, np.inf
-        for dropout_ff in self.dropouts_ff:
-        
-            metric, val_epoch, _ = train.forward(self.patch_size, self.init_n_enc1, self.init_n_enc2, self.init_n_head, self.lr, \
-                                                self.dim_ff, dropout_ff, self.concat_mode, self.select_mode, self.init_embedding_mode)
-        
-            if metric > max_metric:
-                self.dropout_ff = dropout_ff
-                max_metric = metric
-                min_val_epoch = val_epoch
-            elif metric == max_metric:
-                if val_epoch < min_val_epoch:
-                    self.dropout_ff = dropout_ff
-                    min_val_epoch = val_epoch 
-        print(max_metric, self.dropout_ff)
-
-        print('Select nums encoders..')
-        max_metric, min_val_epoch = 0, np.inf
-        for n_enc1 in self.ns_enc1:
-            for n_enc2 in self.ns_enc2:
-        
-                metric, val_epoch, _ = train.forward(self.patch_size, n_enc1, n_enc2, self.init_n_head, self.lr, \
-                                                    self.dim_ff, self.dropout_ff, self.concat_mode, self.select_mode, self.init_embedding_mode)
-
-                if metric > max_metric:
-                    self.n_enc1 = n_enc1
-                    self.n_enc2 = n_enc2
-                    max_metric = metric
-                    min_val_epoch = val_epoch
-                elif metric == max_metric:
-                    if val_epoch < min_val_epoch:
-                        self.n_enc1 = n_enc1
-                        self.n_enc2 = n_enc2
-                        min_val_epoch = val_epoch 
-        print(max_metric, self.n_enc1, self.n_enc2)
-
-        print('Select need embedding layer..')
-        max_metric, min_val_epoch = 0, np.inf
-        for embedding_mode in self.embedding_modes:
-        
-            metric, val_epoch, _ = train.forward(self.patch_size, self.n_enc1, self.n_enc2, self.init_n_head, self.lr, \
-                                                    self.dim_ff, self.dropout_ff, self.concat_mode, self.select_mode, embedding_mode)
-        
-            if metric > max_metric:
-                self.embedding_mode = embedding_mode
-                max_metric = metric
-                min_val_epoch = val_epoch
-            elif metric == max_metric:
-                if val_epoch < min_val_epoch:
-                    self.embedding_mode = embedding_mode
-                    min_val_epoch = val_epoch  
-        print(max_metric, self.embedding_mode)
-
-        print('Select num attention heads..')
-        max_metric, min_val_epoch = 0, np.inf
-        for n_head in self.ns_head:
-            if self.patch_size % n_head != 0 or n_head > self.patch_size:
-                continue
-
-            metric, val_epoch, _ = train.forward(self.patch_size, self.n_enc1, self.n_enc2, n_head, self.lr, \
-                                                self.dim_ff, self.dropout_ff, self.concat_mode, self.select_mode, self.embedding_mode)
-        
-            if metric > max_metric:
-                self.n_head = n_head
-                max_metric = metric
-                min_val_epoch = val_epoch
-            elif metric == max_metric:
-                if val_epoch < min_val_epoch:
-                    self.n_head = n_head
-                    min_val_epoch = val_epoch 
-        print(max_metric, self.n_head)
+                print(param_name[0], getattr(self, param_name[0]))
+                print(param_name[1], getattr(self, param_name[1]))
         
         print('Select best epoch..')
-        train.epochs = train.epochs * 2
-        metric, val_epoch, _ = train.forward(self.patch_size, self.n_enc1, self.n_enc2, self.n_head, self.lr, \
+        self.train.epochs = self.train.epochs * 2
+        metric, val_epoch, _ = self.train.forward(self.patch_size, self.n_enc1, self.n_enc2, self.n_head, self.lr, \
                                             self.dim_ff, self.dropout_ff, self.concat_mode, self.select_mode, self.embedding_mode)
         
-        self.n_epochs = val_epoch
+        self.n_epochs = val_epoch + 1
+        print(self.n_epochs)
     
         print('Final train..')
-        train.epochs = self.n_epochs
-        metric, val_epoch, model = train.forward(self.patch_size, self.n_enc1, self.n_enc2, self.n_head, self.lr, \
+        self.train.epochs = self.n_epochs
+        metric, val_epoch, model = self.train.forward(self.patch_size, self.n_enc1, self.n_enc2, self.n_head, self.lr, \
                                             self.dim_ff, self.dropout_ff, self.concat_mode, self.select_mode, self.embedding_mode)
         
-        
+        print(metric, val_epoch)
+
         return model, self.get_params(), metric 
         
 

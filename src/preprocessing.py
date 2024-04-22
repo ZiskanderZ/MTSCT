@@ -81,7 +81,7 @@ class Preprocess:
 
         return X, y
 
-    def forward(self, scale_mode, fourie=False, max_seq_len=None):
+    def forward(self, scale_mode, fourie=False, max_seq_len=None, **kwargs):
 
         if isinstance(self.X_train, list):
             print('Add padding')
@@ -96,18 +96,20 @@ class Preprocess:
                 elif train_shape < test_shape:
                     X_train_padded = self.get_padded_data(self.X_train, test_shape, fourie, scale_mode)
                 
-            self.X_train = X_train_padded
-            self.X_test = X_test_padded
+            X_train = X_train_padded
+            X_test = X_test_padded
 
         else:
             if fourie:
-                self.X_train = np.abs(np.fft.fft(self.X_train, axis=2))
-                self.X_test = np.abs(np.fft.fft(self.X_test, axis=2))
-
-            self.X_train = self.scale(self.X_train, scale_mode)
-            self.X_test = self.scale(self.X_test, scale_mode)
-        
-        return self.X_train, self.y_train, self.X_test, self.y_test
+                X_train = np.abs(np.fft.fft(self.X_train, axis=2))
+                X_test = np.abs(np.fft.fft(self.X_test, axis=2))
+                X_train = self.scale(X_train, scale_mode)
+                X_test = self.scale(X_test, scale_mode)
+            else:
+                X_train = self.scale(self.X_train, scale_mode)
+                X_test = self.scale(self.X_test, scale_mode)
+                
+        return X_train, self.y_train, X_test, self.y_test
         
 
 
