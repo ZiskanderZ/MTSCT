@@ -41,14 +41,14 @@ class Preprocess:
 
             return X
         
-    def get_padded_data(self, data, max_seq_len, fourie, scale_mode):
+    def get_padded_data(self, data, max_seq_len, fourie_mode, scale_mode):
 
         if pd.isna(max_seq_len):
             max_seq_len = max(list(map(lambda x: x.shape[1], data)))
 
         data_padded = np.zeros((len(data), len(data[0]), max_seq_len))
         for num, arr in enumerate(data):
-            if fourie:
+            if fourie_mode:
                 arr = np.abs(np.fft.fft(arr, axis=1))
             arr = self.scale(arr, scale_mode)
             arr = np.pad(arr, ((0, 0), (0, max_seq_len-arr.shape[1])), constant_values=-1)
@@ -81,26 +81,26 @@ class Preprocess:
 
         return X, y
 
-    def forward(self, scale_mode, fourie=False, max_seq_len=None, **kwargs):
+    def forward(self, scale_mode, fourie_mode=False, max_seq_len=None, **kwargs):
 
         if isinstance(self.X_train, list):
             print('Add padding')
-            X_train_padded = self.get_padded_data(self.X_train, max_seq_len, fourie, scale_mode)
-            X_test_padded = self.get_padded_data(self.X_test, max_seq_len, fourie, scale_mode)
+            X_train_padded = self.get_padded_data(self.X_train, max_seq_len, fourie_mode, scale_mode)
+            X_test_padded = self.get_padded_data(self.X_test, max_seq_len, fourie_mode, scale_mode)
 
             if pd.isna(max_seq_len):
                 train_shape = X_train_padded.shape[2]
                 test_shape = X_test_padded.shape[2]
                 if train_shape > test_shape:
-                    X_test_padded = self.get_padded_data(self.X_test, train_shape, fourie, scale_mode)
+                    X_test_padded = self.get_padded_data(self.X_test, train_shape, fourie_mode, scale_mode)
                 elif train_shape < test_shape:
-                    X_train_padded = self.get_padded_data(self.X_train, test_shape, fourie, scale_mode)
+                    X_train_padded = self.get_padded_data(self.X_train, test_shape, fourie_mode, scale_mode)
                 
             X_train = X_train_padded
             X_test = X_test_padded
 
         else:
-            if fourie:
+            if fourie_mode:
                 X_train = np.abs(np.fft.fft(self.X_train, axis=2))
                 X_test = np.abs(np.fft.fft(self.X_test, axis=2))
                 X_train = self.scale(X_train, scale_mode)

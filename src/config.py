@@ -1,6 +1,7 @@
 seed = 23
 val_size = 0.1
 batch_size = 16
+max_epochs = 20
 
 tuning_dict = {'scale_mode': {'modes': [0, 1, 2], 'change_data': True},
                 'fourie_mode': {'modes': [False, True], 'change_data': True},

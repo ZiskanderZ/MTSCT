@@ -2,7 +2,7 @@ import numpy as np
 
 from src.preprocessing import Preprocess
 from src.training import Train
-from src.config import seed, val_size, batch_size, tuning_dict
+from src.config import seed, val_size, batch_size, max_epochs, tuning_dict
 
 class AutoML:
 
@@ -13,11 +13,11 @@ class AutoML:
 
         self.preprocess = Preprocess(self.data_train_path, self.data_test_path)
         train_size = self.preprocess.X_train.shape
-        self.max_epochs = int(self.get_num_epochs(train_size[0] * train_size[1] * train_size[2]))
 
         self.seed = seed
         self.val_size = val_size
         self.batch_size = batch_size
+        self.max_epochs = max_epochs
 
         self.tuning_dict = tuning_dict
         self.tuning_order = ['scale_mode', 'fourie_mode', ['concat_mode', 'select_mode'], 'patch_size', 'lr', 'dim_ff',\
@@ -42,11 +42,6 @@ class AutoML:
 
         self.max_metric = 0
         self.min_val_epoch = np.inf
-
-
-    def get_num_epochs(self, size):
-
-        return 20000000 / size
     
 
     def get_params(self):
