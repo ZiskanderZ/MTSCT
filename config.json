@@ -1,0 +1,56 @@
+{
+    "seed": 23,
+    "val_size": 0.1,
+    "batch_size": 16,
+    "max_epochs": 10,
+    "lower_limit_patch_size": 1000000000,
+    "upper_limit_patch_size": 1000000000,
+    "limit_n_enc": 1000000000,
+    "limit_n_head": 1000000000,
+    "tuning_dict": {
+      "scale_mode": {
+        "modes": [0, 1, 2],
+        "change_data": true
+      },
+      "fourie_mode": {
+        "modes": [false, true],
+        "change_data": true
+      },
+      "concat_mode": {
+        "modes": [0, 1, 2, 3],
+        "change_data": false
+      },
+      "select_mode": {
+        "modes": [0, 1, 2, 3],
+        "change_data": false
+      },
+      "lr": {
+        "modes": [0.00001, 0.0001, 0.001, 0.01],
+        "change_data": false
+      },
+      "dim_ff": {
+        "modes": [516, 1024, 2048],
+        "change_data": false
+      },
+      "dropout_ff": {
+        "modes": [0.1, 0.25, 0.5, 0.75],
+        "change_data": false
+      },
+      "n_enc1": {
+        "modes": [0, 1, 2, 3],
+        "change_data": false
+      },
+      "n_enc2": {
+        "modes": [0, 1, 2, 3],
+        "change_data": false
+      },
+      "n_head": {
+        "modes": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        "change_data": false
+      },
+      "embedding_mode": {
+        "modes": [false, true],
+        "change_data": false
+      }
+    }
+  }
