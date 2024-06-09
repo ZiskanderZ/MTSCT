@@ -124,7 +124,6 @@ class Preprocess:
             for num in range(features.shape[0]):
                 feature = np.array(list(features[num]))
                 if shape != feature[~np.isnan(feature)].shape[0]:
-                    print(feature[~np.isnan(feature)].shape)
                     continue
                 features_arr[num] = feature[~np.isnan(feature)]
 

@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import json
 import torch
+import argparse
 
 
 def forward(mode, train_path, test_path, config_path, output_folder, model_path, params_file_path):
@@ -54,19 +55,45 @@ def forward(mode, train_path, test_path, config_path, output_folder, model_path,
     metric = automl.test_params(**params)
     return metric
 
+def parse_arguments():
+
+    parser = argparse.ArgumentParser(description='Process some parameters.')
+    parser.add_argument('--mode', type=str, help='Mode', choices=['train', 'test_params', 'test_model'], required=True)
+    parser.add_argument('--output_folder', type=str, help='Output folder', required=True)
+    parser.add_argument('--model_path', type=str, default=None, help='Path to the model')
+    parser.add_argument('--params_file_path', type=str, default=None, help='Path to the parameters file')
+    parser.add_argument('--config_path', type=str, help='Path to the configuration file', required=True)
+    parser.add_argument('--train_path', type=str, help='Train path')
+    parser.add_argument('--test_path', type=str, help='Test path', required=True)
+
+    args = parser.parse_args()
+
+    if args.mode == 'train':
+        if args.train_path is None:
+            parser.error("--train_path is required when mode is 'train'")
+    if args.mode == 'test_params':
+        if args.params_file_path is None:
+            parser.error("--params_file_path is required when mode is 'test_params'")
+    if args.mode == 'test_model':
+        if args.params_file_path is None:
+            parser.error("--params_file_path is required when mode is 'test_model'")
+        if args.model_path is None:
+            parser.error("--model_path is required when mode is 'model_path'")
+    
+    return args
+
 
 if __name__ == '__main__':
 
-    ds_name = ...
+    args = parse_arguments()
 
-    mode = ...
-    output_folder = 'results'
-    model_path = None
-    params_file_path = None
-    config_path = 'config.json'
-
-    train_path = rf'data\{ds_name}\{ds_name}_TRAIN.arff'
-    test_path = rf'data\{ds_name}\{ds_name}_TEST.arff'
+    mode = args.mode
+    output_folder = args.output_folder
+    model_path = args.model_path
+    params_file_path = args.params_file_path
+    config_path = args.config_path
+    train_path = args.train_path
+    test_path = args.test_path
 
     metric = forward(mode, train_path, test_path, config_path, output_folder, model_path, params_file_path)
 
