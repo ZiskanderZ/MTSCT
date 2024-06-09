@@ -22,7 +22,14 @@ def greet(mode, train_path, test_path, file_input_params, file_input_model, file
     mode = radio_dict[mode]
     metric = forward(mode, train_path, test_path, file_config, output_folder_path, file_input_model, file_input_params)
 
-    return os.path.join(output_folder_path, 'TSCT_model.pt'), os.path.join(output_folder_path, f'{metric}.xlsx'), str(metric)
+    if mode == 'train':
+        output = (os.path.join(output_folder_path, 'TSCT_model.pt'), os.path.join(output_folder_path, f'{metric}.xlsx'), str(metric))
+    elif mode == 'test_params':
+        output = (os.path.join(output_folder_path, 'TSCT_model.pt'), None, str(metric))
+    else:
+        output = (None, None, str(metric))
+
+    return output
 
 def filter(choice):
 

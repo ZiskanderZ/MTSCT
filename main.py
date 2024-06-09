@@ -57,9 +57,9 @@ def forward(mode, train_path, test_path, config_path, output_folder, model_path,
 
 if __name__ == '__main__':
 
-    ds_name = 'ArticularyWordRecognition'
+    ds_name = ...
 
-    mode = 'train'
+    mode = ...
     output_folder = 'results'
     model_path = None
     params_file_path = None

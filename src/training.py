@@ -216,7 +216,7 @@ class Train:
             int: The epoch number at which the maximum validation accuracy was achieved.
             torch.nn.Module: The trained Transformer model with the highest validation accuracy.
         """
-        
+        print('Training..')
         torch.cuda.empty_cache()
         self.fix_seeds(self.seed)
         model = Transformer(patch_size, n_enc1, n_enc2, self.n_channels, self.seq_len,\
