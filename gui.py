@@ -44,7 +44,7 @@ def filter(choice):
                 gr.update(visible=True), gr.update(visible=False, value=None), gr.update(visible=False, value=None), gr.update(visible=True, value='')]
 
 with demo:
-    gr.Markdown('<h1 style="font-size:36px;">Time Series Classification Transformer</h1>')
+    gr.Markdown('<h1 style="font-size:36px;">Multivariative Time Series Classification Transformer</h1>')
 
     radio_bttns = ['Train and Test', 'Test params', 'Test model']
     radio = gr.Radio(radio_bttns, label='Run modes')

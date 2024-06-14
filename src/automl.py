@@ -2,9 +2,6 @@ import numpy as np
 
 from src.preprocessing import Preprocess
 from src.training import Train
-from tqdm.auto import tqdm
-import torch
-
 
 class AutoML:
 
