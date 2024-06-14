@@ -32,6 +32,14 @@ def forward(mode, train_path, test_path, config_path, output_folder, model_path,
 
     with open(config_path, 'r') as file:
         config = json.load(file)
+    
+    if 'DuckDuckGeese' in train_path:
+
+        config['batch_size'] = 2
+
+    if 'PEMS-SF' in train_path:
+        
+        config['batch_size'] = 2
 
     automl = AutoML(train_path, test_path, **config)
     
@@ -84,17 +92,32 @@ def parse_arguments():
 
 
 if __name__ == '__main__':
+ 
+    mode = 'test_params'
+    output_folder = 'results'
+    model_path = None
+    config_path = 'config.json'
 
-    args = parse_arguments()
+    data_path= ...
+    d = {}
+    for params_file in os.listdir(data_path):
 
-    mode = args.mode
-    output_folder = args.output_folder
-    model_path = args.model_path
-    params_file_path = args.params_file_path
-    config_path = args.config_path
-    train_path = args.train_path
-    test_path = args.test_path
+        params_file_path = os.path.join(data_path, params_file)
+        ds = params_file.split('_')[0]
 
-    metric = forward(mode, train_path, test_path, config_path, output_folder, model_path, params_file_path)
+        print(ds)
 
-    print(metric)
+        if ds == 'LSST':
+            continue
+
+        train_path = os.path.join('data', ds, f'{ds}_TRAIN.arff')
+        test_path = os.path.join('data', ds, f'{ds}_TEST.arff')
+
+        metric = forward(mode, train_path, test_path, config_path, output_folder, model_path, params_file_path)
+
+        d[ds] = metric
+        print(metric)
+        print()
+
+    
+    pd.DataFrame(d).T.to_excel(os.path.join(output_folder, 'macro_scores.xlsx'))

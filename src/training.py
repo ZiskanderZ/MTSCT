@@ -1,5 +1,5 @@
 import numpy as np
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn.model_selection import train_test_split
 import torch
 from torch import nn
@@ -106,7 +106,12 @@ class Train:
                 preds_lst.extend(output.argmax(dim=1).cpu().detach().numpy())
                 trues_lst.extend(labels.cpu().detach().numpy())
             
-            metric = accuracy_score(trues_lst, preds_lst)
+            acc = accuracy_score(trues_lst, preds_lst)
+            precision = precision_score(trues_lst, preds_lst, average='macro')
+            recall = recall_score(trues_lst, preds_lst, average='macro')
+            f1 = f1_score(trues_lst, preds_lst, average='macro')
+
+            metric = [acc, precision, recall, f1]
             
         cert_loss = cert_loss / len(loader)
 
@@ -223,7 +228,7 @@ class Train:
                              n_head, len(self.n2c), self.device, dim_ff, dropout_ff, concat_mode, select_mode, embedding_mode).to(self.device)
         optimizer = optim.Adam(model.parameters(), lr=lr)
 
-        max_val_metric = 0
+        max_val_metric = [0, 0, 0, 0]
         for e in tqdm(range(self.epochs)):
             train_loss = 0
             model.train()
@@ -241,7 +246,7 @@ class Train:
                 train_loss = train_loss / len(self.train_loader)
                 val_loss, val_acc = self.eval(model, self.test_loader)
 
-                if val_acc > max_val_metric:
+                if val_acc[0] > max_val_metric[0]:
                     self.model = model
                     max_val_metric = val_acc
                     max_val_epoch = e
